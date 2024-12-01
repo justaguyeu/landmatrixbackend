@@ -10,9 +10,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from .models import DataEntry, Debt, Notification, NotificationPreference, StockItem, StockItem2, UserEntry, UserEntry2, UserEntryExpense, UserEntryOutofstock
+from .models import DataEntry, Debt, Notification, NotificationPreference, StockItem, StockItem2, StockItem2main, UserEntry, UserEntry2, UserEntryExpense, UserEntryOutofstock
 from django.db.models import F 
-from .serializers import DataEntrySerializer, DebtSerializer, NotificationSerializer, StockItem2RestockSerializer, StockItemRestockSerializer, StockItemSerializer, StockItemSerializer2, StockReportSerializer, UserEntrySerializer, UserEntrySerializer2, UserEntrySerializerExpense, UserEntrySerializerOutofstock
+from .serializers import DataEntrySerializer, DebtSerializer, NotificationSerializer, StockItem2RestockSerializer, StockItem2mainSerializer, StockItemRestockSerializer, StockItemSerializer, StockItemSerializer2, StockReportSerializer, UserEntrySerializer, UserEntrySerializer2, UserEntrySerializerExpense, UserEntrySerializerOutofstock
 from django.db.models import Sum
 from django.utils.dateparse import parse_date
 from datetime import datetime, timedelta
@@ -27,8 +27,12 @@ from .utils import send_sms, send_email
 from django.shortcuts import render
 from django.db.models import Sum
 from django.utils import timezone
+from urllib.parse import unquote  # Ensure this is imported
+from .models import StockItem2
 
 from myapp import models
+
+from myapp import serializers
 
 
 class DataEntryListCreateView(generics.ListCreateAPIView):
@@ -740,7 +744,7 @@ class StockReportView2(APIView):
 
         report = []
         for stock in stock_items:
-            user_entries = UserEntry2.objects.filter(item_name=stock.stock_name)
+            user_entries = UserEntry2.objects.filter(substock_name=stock.substock_name)
             if start_date and end_date:
                 user_entries = user_entries.filter(date__gte=start_date, date__lt=end_date)
 
@@ -751,7 +755,8 @@ class StockReportView2(APIView):
             total_value_stock = stock.area_in_square_meters * stock.price_per_square_meter
 
             report.append({
-                'item_name': stock.stock_name,
+                'stock_main': str(stock.stock_main),
+                'substock_name': stock.substock_name,
                 'total_quantity': stock.area_in_square_meters,
                 'quantity_used': area_used_in_square_meters,
                 'remaining_stock': remaining_stock,
@@ -759,7 +764,7 @@ class StockReportView2(APIView):
                 'total_value_unused': total_value_unused,
                 'total_value_stock': total_value_stock,
             })
-
+            
         return JsonResponse(report, safe=False)    
 class StockItemListCreateView(generics.ListCreateAPIView):
     queryset = StockItem.objects.all()
@@ -804,8 +809,23 @@ class StockItemListCreateView(generics.ListCreateAPIView):
         
         
 
-      
-    
+def get_substocks(request, main_stock):
+    try:
+        # Decode URL-encoded characters (e.g., spaces as %20)
+        main_stock = unquote(main_stock)
+        
+        # Query the StockItem2 model to get sub-stocks under the selected main stock
+        substocks = StockItem2.objects.filter(stock_main__stock_main=main_stock)
+        
+        # Prepare the response data
+        data = {'branches': list(substocks.values('id', 'substock_name'))}
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)     
+
+class StockItem2mainCreateView(generics.ListCreateAPIView):
+    queryset = StockItem2main.objects.all()
+    serializer_class = StockItem2mainSerializer   
 class StockItemListCreateView2(generics.ListCreateAPIView):
     queryset = StockItem2.objects.all()
     serializer_class = StockItemSerializer2
@@ -831,21 +851,27 @@ class StockItemListCreateView2(generics.ListCreateAPIView):
 
     def post(self, request, *args, **kwargs):
         data = request.data
-        item_name = data.get('item_name')
+        item_name = data.get('substock_name') 
         restock_quantity = Decimal(data.get('area_in_square_meters'))
 
         try:
-            stock_item = StockItem2.objects.get(stock_name=item_name)
+            # Use the correct field name for querying
+            stock_item = StockItem2.objects.get(substock_name=item_name)
+            
+            # Update the stock area in square meters
             stock_item.area_in_square_meters += restock_quantity
             stock_item.save()
 
             return Response({
-                "message": f"Stock updated successfully. New quantity for {item_name} is {stock_item.area_in_square_meters}."
+                "message": f"Compound updated successfully. New quantity for {item_name} is {stock_item.area_in_square_meters}."
             }, status=200)
 
         except StockItem2.DoesNotExist:
             return Response({"error": "Item not found."}, status=404)
-     
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+        
 
 class StockItemListCreateViewa(generics.ListCreateAPIView):
     queryset = StockItem.objects.all()

@@ -5,7 +5,7 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.views import TokenRefreshView
 from myapp import views
-from myapp.views import AvailableStockItemsView, AvailableStockItemsView2, DataEntryListCreateView, CustomTokenObtainPairView, DebtEntryViewSet, MonthlyReportView, MonthlyReportView2, RestockView, StockItemDetailView, StockItemListCreateView, StockItemListCreateView2, StockItemListCreateView2a, StockItemListCreateViewa, StockReportView, StockReportView2, UserEntryViewSet, UserEntryViewSet2, UserEntryViewSet2a, UserEntryViewSetExpense, UserEntryViewSetExpensea, UserEntryViewSeta, WeeklyReportView, YearlyReportView, update_preferences
+from myapp.views import AvailableStockItemsView, AvailableStockItemsView2, DataEntryListCreateView, CustomTokenObtainPairView, DebtEntryViewSet, MonthlyReportView, MonthlyReportView2, RestockView, StockItem2mainCreateView, StockItemDetailView, StockItemListCreateView, StockItemListCreateView2, StockItemListCreateView2a, StockItemListCreateViewa, StockReportView, StockReportView2, UserEntryViewSet, UserEntryViewSet2, UserEntryViewSet2a, UserEntryViewSetExpense, UserEntryViewSetExpensea, UserEntryViewSeta, WeeklyReportView, YearlyReportView, update_preferences
 
 
 urlpatterns = [
@@ -20,7 +20,11 @@ urlpatterns = [
     path('data/weekly/', WeeklyReportView.as_view(), name='monthly-report'),
     path('data/monthly2/', MonthlyReportView2.as_view(), name='monthly-report'),
     path('api/stock/', StockItemListCreateView.as_view(), name='stock-list-create'),
+
+    path('api/stock2main/', StockItem2mainCreateView.as_view(), name='stock-list-create'),
+    path('api/stock2main/<str:main_stock>/', views.get_substocks, name='get_substocks'),
     path('api/stock2/', StockItemListCreateView2.as_view(), name='stock-list-create'),
+    
     path('api/data/<int:pk>/', UserEntryViewSet.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='userentry-list-create'),
     path('api/data2/<int:pk>/', UserEntryViewSet2.as_view({'get': 'retrieve', 'put': 'update', 'delete': 'destroy'}), name='userentry-list-create'),
 
@@ -48,6 +52,8 @@ urlpatterns = [
     path('api/notifications/', views.fetch_notifications, name='fetch_notifications'),
     path('api/notifications/read/<int:notification_id>/', views.mark_notification_as_read, name='mark_notification_as_read'),
     path('api/update-preferences/', update_preferences, name='update_preferences'),
+
+    
 ]
 
 

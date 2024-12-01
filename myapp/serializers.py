@@ -1,7 +1,7 @@
 from django import forms
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import DataEntry, Debt, Notification, StockItem, StockItem2, UserEntry, UserEntry2, UserEntryExpense, UserEntryOutofstock
+from .models import DataEntry, Debt, Notification, StockItem, StockItem2, StockItem2main, UserEntry, UserEntry2, UserEntryExpense, UserEntryOutofstock
 
 class DataEntrySerializer(serializers.ModelSerializer):
     user = serializers.CharField(source='user.username', read_only=True)
@@ -17,15 +17,54 @@ class StockItemSerializer(serializers.ModelSerializer):
 
     def get_month(self, obj):
      return obj.get_month()
-
+    
 class StockItemSerializer2(serializers.ModelSerializer):
     month = serializers.SerializerMethodField()
+
     class Meta:
         model = StockItem2
-        fields = ['id', 'stock_name', 'area_in_square_meters', 'price_per_square_meter','added_date','month', 'restock_area_in_square_meters','last_restock_date' ]
+        fields = [
+            'id',
+            'substock_name',
+            'stock_main',  
+            'area_in_square_meters',
+            'price_per_square_meter',
+            'added_date',
+            'month',
+            'restock_area_in_square_meters',
+            'last_restock_date'
+        ]
 
     def get_month(self, obj):
-     return obj.get_month()
+        return obj.added_date.strftime('%Y-%m')    
+class StockItem2mainSerializer(serializers.ModelSerializer):
+    branches = StockItemSerializer2(
+        many=True, read_only=True)
+
+    class Meta:
+        model = StockItem2main
+        fields = ['id', 'stock_main', 'branches']
+
+
+
+
+    # def validate(self, data):
+    #     # Ensure `stock_main` and `stock_name` are provided
+    #     stock_main = data.get('stock_main')
+    #     stock_name = data.get('stock_name')
+
+    #     if not stock_main:
+    #         raise serializers.ValidationError({"stock_main": "This field is required."})
+    #     if not stock_name:
+    #         raise serializers.ValidationError({"stock_name": "This field is required."})
+
+    #     # Check for duplicates
+    #     if StockItem2.objects.filter(stock_main=stock_main, stock_name=stock_name).exists():
+    #         raise serializers.ValidationError({
+    #             "detail": f"A stock item with name '{stock_name}' already exists under the main stock '{stock_main}'."
+    #         })
+
+    #     return data
 class UserEntrySerializer(serializers.ModelSerializer):
     item = serializers.StringRelatedField()
     user = serializers.CharField(source='user.username', read_only=True)  # Mark as read-only

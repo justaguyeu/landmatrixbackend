@@ -83,6 +83,7 @@ class StockItem(models.Model):
     added_date = models.DateField()
     restock_quantity = models.PositiveIntegerField(default=0)
     last_restock_date = models.DateField(null=True, blank=True)
+    
 
     def remaining_stock(self):
         """Calculate the remaining stock."""
@@ -166,8 +167,20 @@ class StockItem(models.Model):
     #                 stock_item=self.stock_name
     #             )
 
+class StockItem2main(models.Model):
+    """
+    Represents the main stock categories (e.g., regions).
+    """
+    stock_main = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.stock_main
 class StockItem2(models.Model):
-    stock_name = models.CharField(max_length=100)
+    """
+    Represents individual stock branches under a main category.
+    """
+    substock_name = models.CharField(max_length=100)
+    stock_main = models.ForeignKey(StockItem2main, on_delete=models.CASCADE, related_name="branches",blank=True, null=True)
     area_in_square_meters = models.DecimalField(max_digits=10, decimal_places=2)
     area_used_in_square_meters = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     price_per_square_meter = models.DecimalField(max_digits=10, decimal_places=2)
@@ -177,75 +190,63 @@ class StockItem2(models.Model):
     restock_area_in_square_meters = models.PositiveIntegerField(default=0)
     last_restock_date = models.DateField(null=True, blank=True)
 
+    # class Meta:
+    #     unique_together = ('stock_name', 'stock_main')  # Ensure uniqueness of stock_name within a stock_main
+    #     verbose_name = "Stock Item"
+    #     verbose_name_plural = "Stock Items"
+
     def remaining_area(self):
+        """
+        Calculates the remaining area in square meters.
+        """
         return self.area_in_square_meters - self.area_used_in_square_meters
 
     def total_value_used(self):
+        """
+        Calculates the total monetary value of the used stock.
+        """
         return self.area_used_in_square_meters * self.price_per_square_meter
 
     def total_value_unused(self):
+        """
+        Calculates the total monetary value of the remaining stock.
+        """
         return self.remaining_area() * self.price_per_square_meter
 
     def total_value_stock(self):
+        """
+        Calculates the total monetary value of the stock.
+        """
         return self.area_in_square_meters * self.price_per_square_meter
-    
+
     def is_depleted(self):
+        """
+        Determines if the stock is depleted.
+        """
         return self.remaining_area() <= 0
 
-    def __str__(self):
-        return self.stock_name
-    
-
     def get_month(self):
+        """
+        Returns the month the stock was added in 'YYYY-MM' format.
+        """
         return self.added_date.strftime('%Y-%m')
-    
+
     def save(self, *args, **kwargs):
+        """
+        Overrides the save method to send notifications if the stock is running low.
+        """
         super().save(*args, **kwargs)
         remaining = self.remaining_area()
-        if remaining <= 10:
+        if remaining <= 10:  # Notify if remaining stock is 10 or less
             send_stock_notification(
                 stock_item=self,
-                stock_name=self.stock_name,
+                stock_name=self.substock_name,
                 remaining_stock=remaining,
                 model_type='square meters'
             )
 
-    # def save(self, *args, **kwargs):
-    #     super().save(*args, **kwargs)
-    #     remaining = self.remaining_area()
-
-    #     if remaining <= 10:
-    #         preferences = NotificationPreference.objects.all()
-
-    #         for pref in preferences:
-    #             message = f'{self.stock_name} stock is low! Only {remaining} square meters left.'
-
-    #             if pref.receive_email and pref.email:
-    #                 send_mail(
-    #                     'Stock Low Notification',
-    #                     message,
-    #                     settings.DEFAULT_FROM_EMAIL,
-    #                     [pref.email],
-    #                 )
-
-    #             if pref.receive_push:
-    #                 # Add push notification logic here
-    #                 pass
-
-    #             if pref.receive_sms and pref.phone_number:
-    #                 # Add SMS sending logic here
-    #                 pass
-
-    #             if pref.receive_phone_call and pref.phone_number:
-    #                 # Add phone call logic here
-    #                 pass
-
-    #             Notification.objects.create(
-    #                 user=pref.user,
-    #                 message=message,
-    #                 stock_item=self.stock_name
-    #             )
-
+    def __str__(self):
+        return f"{self.substock_name} (Branch of {self.stock_main})"
 
 class UserEntry(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -254,6 +255,7 @@ class UserEntry(models.Model):
     quantity = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
 
     def save(self, *args, **kwargs):
         try:
@@ -298,7 +300,8 @@ class UserEntry(models.Model):
 class UserEntry2(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()
-    item_name = models.CharField(max_length=100)
+    stock_main = models.CharField(max_length=100, blank=True, null=True)
+    substock_name = models.CharField(max_length=100)
     area_in_square_meters = models.DecimalField(
         max_digits=10, 
         decimal_places=5,
@@ -307,10 +310,13 @@ class UserEntry2(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     percentage = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    name = models.CharField(max_length=100,blank=True, null=True)
+    email = models.EmailField(null=True, blank=True)
+    phone_number = models.CharField(max_length=15)
 
     def save(self, *args, **kwargs):
         try:
-            stock_item = StockItem2.objects.get(stock_name=self.item_name)
+            stock_item = StockItem2.objects.get(substock_name=self.substock_name)
 
             remaining_area = stock_item.remaining_area()
             if self.area_in_square_meters > remaining_area:
@@ -390,7 +396,9 @@ class Debt(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    user = models.ForeignKey(User, on_delete=models.CASCADE) 
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    email = models.EmailField(null=True, blank=True)
+    phone_number = models.CharField(max_length=15, null=True, blank=True) 
     total_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def save(self, *args, **kwargs):
