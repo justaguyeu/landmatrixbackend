@@ -152,7 +152,7 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 # }
 
 DATABASES ={
-    'default': dj_database_url.parse('postgresql://landmatrixdatabase_user:IpuiA0BhEkcutRxxr8lfFaS2DNGBnOTS@dpg-csjjtve8ii6s73d4ug10-a.oregon-postgres.render.com/landmatrixdatabase')
+    'default': dj_database_url.parse('postgresql://landmatrixdatabasee_user:5mWppgPkMoV6KlxsybSzBlTqp46TU3q8@dpg-ct7o0ag8fa8c738v865g-a.oregon-postgres.render.com/landmatrixdatabasee')
 }
 
 
