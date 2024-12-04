@@ -800,7 +800,7 @@ class StockItemListCreateView(generics.ListCreateAPIView):
             stock_item.save()
 
             return Response({
-                "message": f"Stock updated successfully. New quantity for {item_name} is {stock_item.quantity}."
+                "message": f"Compound updated successfully. New quantity for {item_name} is {stock_item.quantity}."
             }, status=200)
 
         except StockItem.DoesNotExist:
@@ -1052,9 +1052,9 @@ class RestockView(APIView):
                     stock_item.restock_quantity = quantity
                     stock_item.last_restock_date = datetime.now().date()
                     stock_item.save()
-                    return Response({'message': 'StockItem restocked successfully.'}, status=status.HTTP_200_OK)
+                    return Response({'message': 'Compound restocked successfully.'}, status=status.HTTP_200_OK)
                 except StockItem.DoesNotExist:
-                    return Response({'error': 'StockItem not found.'}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({'error': 'Compound not found.'}, status=status.HTTP_404_NOT_FOUND)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         elif item_type == 'StockItem2':
@@ -1068,9 +1068,9 @@ class RestockView(APIView):
                     stock_item2.area_in_square_meters += area_in_square_meters
                     stock_item2.last_restock_date = datetime.now().date()
                     stock_item2.save()
-                    return Response({'message': 'StockItem2 restocked successfully.'}, status=status.HTTP_200_OK)
+                    return Response({'message': 'Compound restocked successfully.'}, status=status.HTTP_200_OK)
                 except StockItem2.DoesNotExist:
-                    return Response({'error': 'StockItem2 not found.'}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({'error': 'Compound not found.'}, status=status.HTTP_404_NOT_FOUND)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'error': 'Invalid item type.'}, status=status.HTTP_400_BAD_REQUEST)
