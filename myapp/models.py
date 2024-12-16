@@ -52,7 +52,7 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     stock_item = models.ForeignKey('StockItem', null=True, blank=True, on_delete=models.CASCADE)
-    stock_item = models.ForeignKey('StockItem2', null=True, blank=True, on_delete=models.CASCADE)
+    substock_name = models.ForeignKey('StockItem2', null=True, blank=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return f"Notification for {self.user.username} - {self.message}"
@@ -115,7 +115,7 @@ class StockItem(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         remaining = self.remaining_stock()
-        if remaining <= 10:
+        if remaining <= 0:
             send_stock_notification(
                 stock_item=self,
                 stock_name=self.name,
@@ -237,10 +237,10 @@ class StockItem2(models.Model):
         """
         super().save(*args, **kwargs)
         remaining = self.remaining_area()
-        if remaining <= 10:  # Notify if remaining stock is 10 or less
+        if remaining <= 0:  # Notify if remaining stock is 10 or less
             send_stock_notification(
                 stock_item=self,
-                stock_name=self.substock_name,
+                substock_name=self.substock_name,
                 remaining_stock=remaining,
                 model_type='square meters'
             )
@@ -297,6 +297,56 @@ class UserEntry(models.Model):
 
 
 
+# class UserEntry2(models.Model):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE)
+#     date = models.DateField()
+#     stock_main = models.CharField(max_length=100, blank=True, null=True)
+#     substock_name = models.CharField(max_length=100)
+#     area_in_square_meters = models.DecimalField(
+#         max_digits=10, 
+#         decimal_places=5,
+#         validators=[MinValueValidator(0)] 
+#     )
+#     total_price = models.DecimalField(max_digits=1000, decimal_places=2)
+#     percentage = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+#     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+#     name = models.CharField(max_length=100,blank=True, null=True)
+#     email = models.EmailField(null=True, blank=True)
+#     phone_number = models.CharField(max_length=15)
+
+#     def save(self, *args, **kwargs):
+#         try:
+#             stock_item = StockItem2.objects.get(substock_name=self.substock_name)
+
+#             remaining_area = stock_item.remaining_area()
+#             if self.area_in_square_meters > remaining_area:
+#                 raise ValueError("Not enough stock available.")
+
+#             if self.discount_price:
+#                 self.total_price = (self.area_in_square_meters * stock_item.price_per_square_meter * (self.percentage / 100)) - self.discount_price
+#             else:
+#                 self.total_price = self.area_in_square_meters * stock_item.price_per_square_meter
+
+#             # Update the stock item quantity used
+#             stock_item.area_used_in_square_meters += self.area_in_square_meters
+#             stock_item.save()
+
+#             if stock_item.is_depleted():
+#                 send_stock_notification(
+#                     admin_email="admin@example.com",
+#                     message=f"Stock for {stock_item.substock_name} is depleted."
+#                 )
+
+#         except StockItem2.DoesNotExist:
+#             self.total_price = 0
+
+#         if self.total_price < 0:
+#             self.total_price = 0
+
+#         super().save(*args, **kwargs)
+
+#         def __str__(self):
+#             return f"{self.user.username} - {self.substock_name} - {self.date}"
 class UserEntry2(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()
@@ -307,48 +357,15 @@ class UserEntry2(models.Model):
         decimal_places=5,
         validators=[MinValueValidator(0)] 
     )
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=1000, decimal_places=2)
     percentage = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    name = models.CharField(max_length=100,blank=True, null=True)
+    name = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(null=True, blank=True)
     phone_number = models.CharField(max_length=15)
 
     def save(self, *args, **kwargs):
-        try:
-            stock_item = StockItem2.objects.get(substock_name=self.substock_name)
-
-            remaining_area = stock_item.remaining_area()
-            if self.area_in_square_meters > remaining_area:
-                raise ValueError("Not enough stock available.")
-            
-            
-
-            
-            if self.discount_price:
-                # If there is a discount, subtract it from the calculated total
-                self.total_price = (self.area_in_square_meters * stock_item.price_per_square_meter * self.percentage/100) - self.discount_price
-
-            else:
-                # If no discount, use the regular calculation
-                self.total_price = self.area_in_square_meters * stock_item.price_per_square_meter
-            
-            # Update the stock item quantity used
-            stock_item.area_used_in_square_meters += self.area_in_square_meters
-            stock_item.save()
-
-            if stock_item.is_depleted():
-            # Send notification to the admin (this could be an email, alert, etc.)
-            # You could implement a notification system here
-                pass
-
-        except StockItem2.DoesNotExist:
-            self.total_price = 0  # Handle cases where the stock item does not exist
-
-        # Ensure the total price is not negative
-        if self.total_price < 0:
-            self.total_price = 0
-
+        # Simply save the object without additional logic
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -428,14 +445,14 @@ class Debt(models.Model):
     
 
     
-def send_stock_notification(stock_name, remaining_stock, model_type='unit'):
+def send_stock_notification(substock_name, remaining_stock, model_type='unit'):
     try:
         admin_user = User.objects.get(is_superuser=True)  # Assuming the admin is a superuser
     except User.DoesNotExist:
         print('Admin user does not exist')
         return
 
-    message = f"Stock Alert: {stock_name} has only {remaining_stock} {model_type} left."
+    message = f"Stock Alert: {substock_name} has only {remaining_stock} {model_type} left."
     notification = Notification(
         user=admin_user,
         message=message,
