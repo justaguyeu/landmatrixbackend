@@ -352,7 +352,7 @@ class UserEntry2(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username} - {self.item_name} - {self.date}"
+        return f"{self.user.username} - {self.substock_name} - {self.date}"
 
 class UserEntryExpense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
